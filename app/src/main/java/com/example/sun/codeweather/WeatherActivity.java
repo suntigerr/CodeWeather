@@ -1,6 +1,8 @@
 package com.example.sun.codeweather;
 
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.os.Build;
 import android.preference.PreferenceManager;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -8,11 +10,13 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
 import com.example.sun.codeweather.gson.Forecast;
 import com.example.sun.codeweather.gson.Weather;
 import com.example.sun.codeweather.util.HttpUtil;
@@ -39,12 +43,26 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView comfortText;
     private TextView carWashText;
     private TextView sportText;
+
+    private ImageView bingPicImg;
     private SharedPreferences preferences = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_weather);
+        //只有5.0以上支持  同时借助coordinatorLayout AppBarLayout CollapsingToolbarLayout 也能实现
+        if (Build.VERSION.SDK_INT >= 21){
+            //获取当前活动的DecorView
+            View decorView = getWindow().getDecorView();
+            //改变系统UI显示
+            //表示当前活动显示在状态栏上
+            decorView.setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            |View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+            //状态栏上设置透明
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+        }
         //初始化控件
         weatherLayout = findViewById(R.id.weather_layout);
 
@@ -61,6 +79,8 @@ public class WeatherActivity extends AppCompatActivity {
         carWashText = findViewById(R.id.car_wash_text);
         sportText = findViewById(R.id.sport_text);
 
+        bingPicImg = findViewById(R.id.bing_pic_img);
+
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
 
         String weatherString = preferences.getString("weather", null);
@@ -74,7 +94,15 @@ public class WeatherActivity extends AppCompatActivity {
             weatherLayout.setVisibility(View.INVISIBLE);
             requestWeather(weatherId);
         }
+
+        String bingPic = preferences.getString("bing_pic",null);
+        if (bingPic!= null){
+            Glide.with(this).load(bingPic).into(bingPicImg);
+        }else {
+            loadBingPic();
+        }
     }
+
 
 
     /**
@@ -118,6 +146,7 @@ public class WeatherActivity extends AppCompatActivity {
                 });
             }
         });
+        loadBingPic();
     }
 
     /**
@@ -161,6 +190,35 @@ public class WeatherActivity extends AppCompatActivity {
         sportText.setText(sport);
 
     }
+    /**
+     * 加载Bing每日一图
+     */
+
+    private void loadBingPic() {
+        String requestBingPic = "http://guolin.tech/api/bing_pic";
+        HttpUtil.sendOkhttpRequest(requestBingPic, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final  String bingPic = response.body().string();
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.putString("bing_pic",bingPic);
+                editor.apply();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Glide.with(WeatherActivity.this).load(bingPic)
+                                .into(bingPicImg);
+                    }
+                });
+            }
+        });
+    }
+
 
 }
 
